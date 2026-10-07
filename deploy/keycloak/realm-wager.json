@@ -1,0 +1,110 @@
+{
+  "realm": "wager",
+  "enabled": true,
+  "accessTokenLifespan": 300,
+  "sslRequired": "none",
+  "roles": {
+    "realm": [
+      { "name": "provider", "description": "Game provider: submits and reads its own wager transactions" },
+      { "name": "wallet-operator", "description": "Internal service: wallet operations (open, read, ledger, reconciliation)" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "provider-a",
+      "secret": "provider-a-secret",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true,
+      "protocolMappers": [
+        { "name": "audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "wager-wallet-api", "access.token.claim": "true" } },
+        { "name": "realm-roles", "protocol": "openid-connect", "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": { "claim.name": "realm_access.roles", "multivalued": "true", "jsonType.label": "String", "access.token.claim": "true" } },
+        { "name": "provider_id", "protocol": "openid-connect", "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "config": { "claim.name": "provider_id", "claim.value": "provider-a", "jsonType.label": "String", "access.token.claim": "true" } }
+      ]
+    },
+    {
+      "clientId": "provider-b",
+      "secret": "provider-b-secret",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true,
+      "protocolMappers": [
+        { "name": "audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "wager-wallet-api", "access.token.claim": "true" } },
+        { "name": "realm-roles", "protocol": "openid-connect", "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": { "claim.name": "realm_access.roles", "multivalued": "true", "jsonType.label": "String", "access.token.claim": "true" } },
+        { "name": "provider_id", "protocol": "openid-connect", "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "config": { "claim.name": "provider_id", "claim.value": "provider-b", "jsonType.label": "String", "access.token.claim": "true" } }
+      ]
+    },
+    {
+      "clientId": "provider-short-lived",
+      "secret": "provider-short-lived-secret",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true,
+      "attributes": { "access.token.lifespan": "2" },
+      "protocolMappers": [
+        { "name": "audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "wager-wallet-api", "access.token.claim": "true" } },
+        { "name": "realm-roles", "protocol": "openid-connect", "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": { "claim.name": "realm_access.roles", "multivalued": "true", "jsonType.label": "String", "access.token.claim": "true" } },
+        { "name": "provider_id", "protocol": "openid-connect", "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "config": { "claim.name": "provider_id", "claim.value": "provider-a", "jsonType.label": "String", "access.token.claim": "true" } }
+      ]
+    },
+    {
+      "clientId": "provider-no-role",
+      "secret": "provider-no-role-secret",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true,
+      "protocolMappers": [
+        { "name": "audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "wager-wallet-api", "access.token.claim": "true" } },
+        { "name": "realm-roles", "protocol": "openid-connect", "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": { "claim.name": "realm_access.roles", "multivalued": "true", "jsonType.label": "String", "access.token.claim": "true" } },
+        { "name": "provider_id", "protocol": "openid-connect", "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "config": { "claim.name": "provider_id", "claim.value": "provider-a", "jsonType.label": "String", "access.token.claim": "true" } }
+      ]
+    },
+    {
+      "clientId": "wallet-internal",
+      "secret": "wallet-internal-secret",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true,
+      "protocolMappers": [
+        { "name": "audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "wager-wallet-api", "access.token.claim": "true" } },
+        { "name": "realm-roles", "protocol": "openid-connect", "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": { "claim.name": "realm_access.roles", "multivalued": "true", "jsonType.label": "String", "access.token.claim": "true" } }
+      ]
+    }
+  ],
+  "users": [
+    { "username": "service-account-provider-a", "enabled": true, "serviceAccountClientId": "provider-a", "realmRoles": ["provider"] },
+    { "username": "service-account-provider-b", "enabled": true, "serviceAccountClientId": "provider-b", "realmRoles": ["provider"] },
+    { "username": "service-account-provider-short-lived", "enabled": true, "serviceAccountClientId": "provider-short-lived", "realmRoles": ["provider"] },
+    { "username": "service-account-provider-no-role", "enabled": true, "serviceAccountClientId": "provider-no-role", "realmRoles": [] },
+    { "username": "service-account-wallet-internal", "enabled": true, "serviceAccountClientId": "wallet-internal", "realmRoles": ["wallet-operator"] }
+  ]
+}

@@ -1,0 +1,112 @@
+name: wager-wallet-service
+
+# Three independent instances (own process, memory and connection pool)
+# sharing PostgreSQL, Keycloak and SQS.
+x-wallet: &wallet
+  build: .
+  image: wager-wallet-service:local
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+    keycloak:
+      condition: service_healthy
+    localstack:
+      condition: service_healthy
+  environment: &wallet-env
+    DATABASE_URL: postgres://${POSTGRES_USER:-wallet}:${POSTGRES_PASSWORD:-wallet}@postgres:5432/${POSTGRES_DB:-wallet}?sslmode=disable
+    # Tokens carry the public issuer (localhost) but keys are fetched inside the network.
+    OIDC_ISSUER_URL: http://localhost:8180/realms/wager
+    OIDC_JWKS_URL: http://keycloak:8180/realms/wager/protocol/openid-connect/certs
+    OIDC_AUDIENCE: wager-wallet-api
+    AWS_REGION: ${AWS_REGION:-us-east-1}
+    AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
+    AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
+    SQS_ENDPOINT: http://localstack:4566
+    SQS_INPUT_QUEUE_URL: http://localstack:4566/000000000000/wager-transactions.fifo
+    SQS_DLQ_URL: http://localstack:4566/000000000000/wager-transactions-dlq.fifo
+    SQS_EVENTS_QUEUE_URL: http://localstack:4566/000000000000/wallet-events.fifo
+    REFERENCE_TTL: ${REFERENCE_TTL:-5m}
+  stop_grace_period: 30s
+  restart: unless-stopped
+
+services:
+  wallet-1:
+    <<: *wallet
+    environment:
+      <<: *wallet-env
+      INSTANCE_ID: wallet-1
+    ports: ["8081:8080"]
+
+  wallet-2:
+    <<: *wallet
+    environment:
+      <<: *wallet-env
+      INSTANCE_ID: wallet-2
+    ports: ["8082:8080"]
+
+  wallet-3:
+    <<: *wallet
+    environment:
+      <<: *wallet-env
+      INSTANCE_ID: wallet-3
+    ports: ["8083:8080"]
+
+  postgres:
+    image: postgres:17-alpine
+    command: ["postgres", "-c", "max_connections=300"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-wallet}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wallet}
+      POSTGRES_DB: ${POSTGRES_DB:-wallet}
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    image: migrate/migrate:v4.18.3
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes: [./migrations:/migrations:ro]
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://${POSTGRES_USER:-wallet}:${POSTGRES_PASSWORD:-wallet}@postgres:5432/${POSTGRES_DB:-wallet}?sslmode=disable"
+      - "up"
+    restart: "no"
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3
+    command: ["start-dev", "--import-realm", "--http-port=8180"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HEALTH_ENABLED: "true"
+      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+    ports: ["8180:8180"]
+    volumes: [./deploy/keycloak:/opt/keycloak/data/import:ro]
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+
+  localstack:
+    image: localstack/localstack:4.4
+    environment:
+      SERVICES: sqs
+      AWS_DEFAULT_REGION: ${AWS_REGION:-us-east-1}
+    ports: ["4566:4566"]
+    volumes: [./deploy/localstack/init-sqs.sh:/etc/localstack/init/ready.d/init-sqs.sh:ro]
+    healthcheck:
+      test: ["CMD-SHELL", "awslocal sqs get-queue-url --queue-name wallet-events.fifo >/dev/null 2>&1"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+volumes:
+  pgdata:
